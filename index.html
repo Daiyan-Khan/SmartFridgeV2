@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smart Fridge</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+    <style>
+        #warnings {
+            color: red;
+            font-weight: bold;
+        }
+        #bluetooth_status {
+            color: red;
+            font-weight: bold;
+            display: none;
+        }
+        .loading-spinner {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>Smart Fridge</h1>
+    <img id="fridge_image" src="/fridge_image.jpg" alt="Fridge Image" width="600">
+    <div id="sensor_data"></div>
+    <div id="warnings"></div>
+    <div id="bluetooth_status">Bluetooth connection lost!</div>
+    <div class="loading-spinner" id="loading-spinner"></div>
+    <button onclick="refreshImage()">Refresh Image</button>
+    <button onclick="refreshSensorData()">Refresh Sensor Data</button>
+    <button onclick="turnLeft()">Turn Left</button>
+    <button onclick="turnRight()">Turn Right</button>
+    <button onclick="centerCamera()">Center Camera</button>
+
+    <script>
+        const socket = io();
+
+        socket.on('sensor_update', function(data) {
+            updateSensorData(data.sensor_data);
+        });
+
+        socket.on('bluetooth_disconnected', function() {
+            document.getElementById('bluetooth_status').style.display = 'block';
+        });
+
+        function updateSensorData(sensorData) {
+            document.getElementById('sensor_data').innerHTML = `
+                <p>Temperature1: ${sensorData.temperature1}</p>
+                <p>Humidity1: ${sensorData.humidity1}</p>
+                <p>Temperature2: ${sensorData.temperature2}</p>
+                <p>Humidity2: ${sensorData.humidity2}</p>
+            `;
+        }
+
+        function handleRequestError(error) {
+            document.getElementById('warnings').innerText = error.message;
+            document.getElementById('loading-spinner').style.display = 'none';
+        }
+
+        function fetchWithLoadingIndicator(url, options) {
+            document.getElementById('warnings').innerText = '';
+            document.getElementById('loading-spinner').style.display = 'block';
+            return fetch(url, options)
+                .then(response => {
+                    document.getElementById('loading-spinner').style.display = 'none';
+                    return response.json();
+                })
+                .catch(error => {
+                    handleRequestError({ message: 'Failed to fetch data.' });
+                });
+        }
+
+        function refreshImage() {
+            fetchWithLoadingIndicator('/capture')
+                .then(data => {
+                    if (data.image) {
+                        document.getElementById('fridge_image').src = data.image + '?t=' + new Date().getTime();
+                    }
+                });
+        }
+
+        function refreshSensorData() {
+            fetchWithLoadingIndicator('/refresh_sensor_data', { method: 'POST' })
+                .then(data => {
+                    if (data.status === 'error') {
+                        handleRequestError(data);
+                    }
+                });
+        }
+
+        function turnLeft() {
+            fetchWithLoadingIndicator('/turn_left', { method: 'POST' })
+                .then(data => {
+                    if (data.status === 'error') {
+                        handleRequestError(data);
+                    }
+                });
+        }
+
+        function turnRight() {
+            fetchWithLoadingIndicator('/turn_right', { method: 'POST' })
+                .then(data => {
+                    if (data.status === 'error') {
+                        handleRequestError(data);
+                    }
+                });
+        }
+
+        function centerCamera() {
+            fetchWithLoadingIndicator('/center_camera', { method: 'POST' })
+                .then(data => {
+                    if (data.status === 'error') {
+                        handleRequestError(data);
+                    }
+                });
+        }
+    </script>
+</body>
+</html>
+
